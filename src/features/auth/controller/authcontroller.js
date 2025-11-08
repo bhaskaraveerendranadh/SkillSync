@@ -1,11 +1,11 @@
-import { loginApi, registerApi } from "../model/authModel";
+import { loginApi, markOnboardingComplete } from "../model/authModel";
 
 /**
  * Handles user login
  * @param {Object} credentials - User credentials
  * @param {string} credentials.email - User email
  * @param {string} credentials.password - User password
- * @returns {Promise<{ success: boolean, message?: string, token?: string }>}
+ * @returns {Promise<{ success: boolean, message?: string, token?: string, user?: Object }>}
  */
 export async function loginUser(credentials) {
   try {
@@ -25,12 +25,15 @@ export async function loginUser(credentials) {
     // Call login API
     const res = await loginApi(credentials);
     
-    if (res.success) {
-      // Store auth token if needed
-      if (res.token) {
-        localStorage.setItem('authToken', res.token);
-      }
-      return res;
+    if (res.success && res.user) {
+      // Store auth token and user info
+      localStorage.setItem('authToken', res.token || 'dummy-token');
+      localStorage.setItem('userEmail', credentials.email);
+      
+      return {
+        ...res,
+        isNewUser: !res.user.hasCompletedOnboarding
+      };
     }
 
     return { 
@@ -47,48 +50,22 @@ export async function loginUser(credentials) {
 }
 
 /**
- * Handles user registration
- * @param {Object} data - Registration data
- * @param {string} data.fullName - User's full name
- * @param {string} data.email - User's email
- * @param {string} data.password - User's password
- * @returns {Promise<{ success: boolean, message?: string, userId?: number }>}
+ * Completes the onboarding process for a user
+ * @param {string} email - The email of the user completing onboarding
+ * @returns {Promise<void>}
  */
-export async function registerUser(data) {
-  try {
-    // Input validation
-    if (!data.fullName || !data.email || !data.password) {
-      return { success: false, message: "All fields are required" };
-    }
-
-    if (!data.email.includes('@')) {
-      return { success: false, message: "Please enter a valid email" };
-    }
-
-    if (data.password.length < 6) {
-      return { success: false, message: "Password must be at least 6 characters" };
-    }
-
-    if (data.fullName.length < 2) {
-      return { success: false, message: "Please enter a valid name" };
-    }
-
-    // Call register API
-    const res = await registerApi(data);
-    
-    if (res.success) {
-      return res;
-    }
-
-    return { 
-      success: false, 
-      message: res.message || "Registration failed" 
-    };
-  } catch (error) {
-    console.error('Registration error:', error);
-    return { 
-      success: false, 
-      message: "An error occurred during registration" 
-    };
+export async function completeOnboarding(email) {
+  // Mark onboarding complete in the backend
+  markOnboardingComplete(email);
+  
+  // Update localStorage to reflect the change immediately
+  localStorage.setItem('onboardingComplete', 'true');
+  
+  // Re-login to update the user session
+  const storedEmail = localStorage.getItem('userEmail');
+  const storedToken = localStorage.getItem('authToken');
+  
+  if (storedEmail && storedToken) {
+    await loginApi({ email: storedEmail, password: 'dummy' }); // Password not needed for refresh
   }
 }

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { loginUser } from "../controller/authcontroller";
 import Button from "../../../components/button";
+import { loginUser } from "../controller/authcontroller";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -15,7 +15,17 @@ export default function LoginPage() {
     
     const res = await loginUser({ email, password });
     if (res.success) {
-      navigate("/dashboard");
+      // Check if user has completed onboarding
+      const completedUsers = localStorage.getItem('completedUsers');
+      const hasCompleted = completedUsers && JSON.parse(completedUsers).includes(email);
+      
+      if (hasCompleted) {
+        // User has completed onboarding before
+        navigate("/dashboard", { replace: true });
+      } else {
+        // New user or hasn't completed onboarding
+        navigate("/onboarding/skills", { replace: true });
+      }
     } else {
       setErr(res.message || "Login failed");
     }
