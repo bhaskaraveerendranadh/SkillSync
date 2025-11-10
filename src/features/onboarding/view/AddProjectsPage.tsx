@@ -22,10 +22,8 @@ const AddProjectsPage: React.FC = () => {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [technologies, setTechnologies] = useState("");
-
-  // Keep data in sync with onboardingData + localStorage
   useEffect(() => {
-    onboardingData.projects = projects;
+    onboardingData.projects = projects.map((project) => project.title);
     localStorage.setItem("projects", JSON.stringify(projects));
   }, [projects]);
 
