@@ -4,49 +4,64 @@ import { motion } from "framer-motion";
 import "../../onboarding/styles/onboarding.css";
 import { onboardingData, skillCategories } from "../model/onboardingModel";
 
+type Skill = {
+  name: string;
+  level: "Beginner" | "Intermediate" | "Expert";
+};
+
 const SkillsPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // Load previously saved skills (from onboardingData)
-  const [skills, setSkills] = useState<string[]>(onboardingData.skills || []);
+  // ✅ Safely convert stored data to Skill[]
+  const [skills, setSkills] = useState<Skill[]>(
+    Array.isArray(onboardingData.skills)
+      ? onboardingData.skills.map((s) =>
+          typeof s === "string" ? { name: s, level: "Beginner" } : s
+        )
+      : []
+  );
+
   const [input, setInput] = useState("");
 
-  // Update onboardingData whenever skills change
+  // ✅ Sync skills with onboardingData
   useEffect(() => {
-    onboardingData.skills = skills;
+    onboardingData.skills = skills.map((s) => s.name);
   }, [skills]);
 
-  // Toggle (select/unselect) a skill
-  const toggleSkill = (skill: string) => {
-    setSkills((prev) =>
-      prev.includes(skill)
-        ? prev.filter((s) => s !== skill)
-        : [...prev, skill]
-    );
+  const toggleSkill = (skillName: string) => {
+    const exists = skills.find((s) => s.name === skillName);
+    if (exists) {
+      setSkills((prev) => prev.filter((s) => s.name !== skillName));
+    } else {
+      setSkills((prev) => [...prev, { name: skillName, level: "Beginner" }]);
+    }
   };
 
-  // Add a custom skill
   const handleAdd = () => {
     const newSkill = input.trim();
     if (!newSkill) return;
-
-    // Prevent duplicates
-    if (skills.includes(newSkill)) {
+    if (skills.some((s) => s.name === newSkill)) {
       setInput("");
       return;
     }
 
-    setSkills((prev) => [...prev, newSkill]);
+    setSkills((prev) => [...prev, { name: newSkill, level: "Beginner" }]);
     setInput("");
   };
 
-  // Predefined skills (from model)
+  const updateSkillLevel = (skillName: string, level: Skill["level"]) => {
+    setSkills((prev) =>
+      prev.map((s) => (s.name === skillName ? { ...s, level } : s))
+    );
+  };
+
   const predefinedSkills = skillCategories
     .slice(0, 4)
     .flatMap((category) => category.items.slice(0, 8));
 
-  // Custom skills = ones not in predefined list
-  const customSkills = skills.filter((s) => !predefinedSkills.includes(s));
+  const customSkills = skills
+    .filter((s) => !predefinedSkills.includes(s.name))
+    .map((s) => s.name);
 
   return (
     <motion.div
@@ -61,13 +76,31 @@ const SkillsPage: React.FC = () => {
       <div className="onboarding-card">
         {/* Step Indicators */}
         <div className="step-indicators">
-          <div className="dot active" onClick={() => navigate("/onboarding/skills")}></div>
-          <div className="dot" onClick={() => navigate("/onboarding/interests")}></div>
-          <div className="dot" onClick={() => navigate("/onboarding/projects")}></div>
+          <div
+            className="dot active"
+            onClick={() => navigate("/onboarding/skills")}
+            title="Go to Skills step"
+            role="button"
+            aria-label="Go to skills step"
+          ></div>
+          <div
+            className="dot"
+            onClick={() => navigate("/onboarding/interests")}
+            title="Go to Interests step"
+            role="button"
+            aria-label="Go to interests step"
+          ></div>
+          <div
+            className="dot"
+            onClick={() => navigate("/onboarding/projects")}
+            title="Go to Projects step"
+            role="button"
+            aria-label="Go to projects step"
+          ></div>
         </div>
 
         <h2>Add Your Skills</h2>
-        <p>Choose your technical and soft skills, or add your own below.</p>
+        <p>Choose your skills and select your proficiency level.</p>
 
         {/* Input Field */}
         <div className="input-group">
@@ -75,41 +108,110 @@ const SkillsPage: React.FC = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Add a skill (e.g., React, Python)"
+            aria-label="Add a new skill"
           />
-          <button onClick={handleAdd}>+</button>
+          <button
+            type="button"
+            onClick={handleAdd}
+            aria-label="Add skill"
+            title="Add skill"
+          >
+            +
+          </button>
         </div>
 
         {/* Skill Tags */}
         <div className="tag-container">
-          {/* Predefined skills */}
-          {predefinedSkills.map((skill) => (
-            <button
-              key={skill}
-              className={`tag ${skills.includes(skill) ? "selected" : ""}`}
-              onClick={() => toggleSkill(skill)}
-            >
-              {skill}
-            </button>
-          ))}
+          {/* Predefined Skills */}
+          {predefinedSkills.map((skill) => {
+            const selectedSkill = skills.find((s) => s.name === skill);
+            const isSelected = Boolean(selectedSkill);
 
-          {/* Custom skills (added manually) */}
-          {customSkills.map((skill) => (
-            <button
-              key={skill}
-              className={`tag selected`}
-              onClick={() => toggleSkill(skill)}
-            >
-              {skill} ✕
-            </button>
-          ))}
+            return (
+              <div key={skill} className="skill-tag">
+                <button
+                  type="button"
+                  className={`tag ${isSelected ? "selected" : ""}`}
+                  onClick={() => toggleSkill(skill)}
+                  aria-label={`Toggle ${skill}`}
+                  title={`Toggle ${skill}`}
+                >
+                  {skill}
+                </button>
+
+                {isSelected && (
+                  <select
+                    value={selectedSkill!.level}
+                    onChange={(e) =>
+                      updateSkillLevel(skill, e.target.value as Skill["level"])
+                    }
+                    className="level-select"
+                    aria-label={`Select proficiency for ${skill}`}
+                    title={`Select proficiency level for ${skill}`}
+                  >
+                    <option>Beginner</option>
+                    <option>Intermediate</option>
+                    <option>Expert</option>
+                  </select>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Custom Skills */}
+          {customSkills.map((skill) => {
+            const selectedSkill = skills.find((s) => s.name === skill);
+            return (
+              <div key={skill} className="skill-tag">
+                <button
+                  type="button"
+                  className="tag selected"
+                  onClick={() => toggleSkill(skill)}
+                  aria-pressed="true"
+                  aria-label={`Remove ${skill}`}
+                  title={`Remove ${skill}`}
+                >
+                  {skill} ✕
+                </button>
+
+                {selectedSkill && (
+                  <select
+                    value={selectedSkill.level}
+                    onChange={(e) =>
+                      updateSkillLevel(skill, e.target.value as Skill["level"])
+                    }
+                    className="level-select"
+                    aria-label={`Select proficiency for ${skill}`}
+                    title={`Select proficiency level for ${skill}`}
+                  >
+                    <option>Beginner</option>
+                    <option>Intermediate</option>
+                    <option>Expert</option>
+                  </select>
+                )}
+              </div>
+            );
+          })}
         </div>
 
-        {/* Navigation */}
+        {/* Navigation Buttons */}
         <div className="buttons">
-          <button className="back-btn" disabled>
+          <button
+            type="button"
+            className="back-btn"
+            disabled
+            aria-disabled="true"
+            aria-label="Go back"
+          >
             Back
           </button>
-          <button className="next-btn" onClick={() => navigate("/onboarding/interests")}>
+          <button
+            type="button"
+            className="next-btn"
+            onClick={() => navigate("/onboarding/interests")}
+            aria-label="Next step"
+            title="Go to next step"
+          >
             Next
           </button>
         </div>
