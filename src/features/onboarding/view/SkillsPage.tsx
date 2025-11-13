@@ -2,66 +2,99 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import "../../onboarding/styles/onboarding.css";
-import { onboardingData, skillCategories } from "../model/onboardingModel";
+import {
+  onboardingData,
+  skillCategories,
+} from "../model/onboardingModel";
+import { submitSkills } from "../controller/Onboardingcontroller";
 
-type Skill = {
+
+type SkillLevel = "beginner" | "intermediate" | "advanced";
+
+interface SelectedSkill {
   name: string;
-  level: "Beginner" | "Intermediate" | "Expert";
-};
+  level: SkillLevel;
+}
 
-const SkillsPage: React.FC = () => {
+const AddSkillsPage: React.FC = () => {
   const navigate = useNavigate();
 
-  // ✅ Safely convert stored data to Skill[]
-  const [skills, setSkills] = useState<Skill[]>(
-    Array.isArray(onboardingData.skills)
-      ? onboardingData.skills.map((s) =>
-          typeof s === "string" ? { name: s, level: "Beginner" } : s
-        )
-      : []
-  );
+  const [skills, setSkills] = useState<SelectedSkill[]>(() => {
+    const stored = localStorage.getItem("skills");
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return onboardingData.skills || [];
+      }
+    }
+    return onboardingData.skills || [];
+  });
 
   const [input, setInput] = useState("");
+  const [defaultLevel, setDefaultLevel] = useState<SkillLevel>("intermediate");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
-  // ✅ Sync skills with onboardingData
   useEffect(() => {
-    onboardingData.skills = skills.map((s) => s.name);
+    onboardingData.skills = skills;
+    localStorage.setItem("skills", JSON.stringify(skills));
   }, [skills]);
 
-  const toggleSkill = (skillName: string) => {
-    const exists = skills.find((s) => s.name === skillName);
-    if (exists) {
-      setSkills((prev) => prev.filter((s) => s.name !== skillName));
+  const upsertSkill = (name: string, level?: SkillLevel) => {
+    setError("");
+    const trimmed = name.trim();
+    if (!trimmed) return;
+
+    const chosenLevel = level || defaultLevel;
+
+    const existingIndex = skills.findIndex((s) => s.name === trimmed);
+    if (existingIndex >= 0) {
+      const updated = [...skills];
+      updated[existingIndex] = { ...updated[existingIndex], level: chosenLevel };
+      setSkills(updated);
     } else {
-      setSkills((prev) => [...prev, { name: skillName, level: "Beginner" }]);
+      setSkills([...skills, { name: trimmed, level: chosenLevel }]);
     }
   };
 
-  const handleAdd = () => {
-    const newSkill = input.trim();
-    if (!newSkill) return;
-    if (skills.some((s) => s.name === newSkill)) {
-      setInput("");
-      return;
-    }
+  const removeSkill = (name: string) => {
+    setSkills(skills.filter((s) => s.name !== name));
+  };
 
-    setSkills((prev) => [...prev, { name: newSkill, level: "Beginner" }]);
+  const handleAddInputSkill = () => {
+    if (!input.trim()) return;
+    upsertSkill(input.trim(), defaultLevel);
     setInput("");
   };
 
-  const updateSkillLevel = (skillName: string, level: Skill["level"]) => {
-    setSkills((prev) =>
-      prev.map((s) => (s.name === skillName ? { ...s, level } : s))
+  const handleChangeLevel = (name: string, level: SkillLevel) => {
+    const updated = skills.map((s) =>
+      s.name === name ? { ...s, level } : s
     );
+    setSkills(updated);
   };
 
-  const predefinedSkills = skillCategories
-    .slice(0, 4)
-    .flatMap((category) => category.items.slice(0, 8));
+  const handleNext = async () => {
+    setSaving(true);
+    setError("");
 
-  const customSkills = skills
-    .filter((s) => !predefinedSkills.includes(s.name))
-    .map((s) => s.name);
+    const res = await submitSkills(undefined, skills);
+
+    setSaving(false);
+
+    if (!res.success) {
+      setError(res.message || "Failed to save skills");
+      return;
+    }
+
+    navigate("/onboarding/interests");
+  };
+
+  const allSuggested = skillCategories.flatMap((category) => category.items);
+
+  const selectedNames = new Set(skills.map((s) => s.name));
+  const remainingSuggestions = allSuggested.filter((name) => !selectedNames.has(name));
 
   return (
     <motion.div
@@ -74,145 +107,111 @@ const SkillsPage: React.FC = () => {
       <h1 className="logo">SKILLSYNC</h1>
 
       <div className="onboarding-card">
-        {/* Step Indicators */}
         <div className="step-indicators">
-          <div
+          <button
+            type="button"
             className="dot active"
             onClick={() => navigate("/onboarding/skills")}
-            title="Go to Skills step"
-            role="button"
-            aria-label="Go to skills step"
-          ></div>
-          <div
+          />
+          <button
+            type="button"
             className="dot"
             onClick={() => navigate("/onboarding/interests")}
-            title="Go to Interests step"
-            role="button"
-            aria-label="Go to interests step"
-          ></div>
-          <div
+          />
+          <button
+            type="button"
             className="dot"
             onClick={() => navigate("/onboarding/projects")}
-            title="Go to Projects step"
-            role="button"
-            aria-label="Go to projects step"
-          ></div>
+          />
         </div>
 
         <h2>Add Your Skills</h2>
-        <p>Choose your skills and select your proficiency level.</p>
+        <p>Select your skills and choose your proficiency level.</p>
 
-        {/* Input Field */}
+        {error && <p className="error-text">{error}</p>}
+        {skills.length > 0 && (
+          <div className="selected-interests">
+            <p className="selected-label">Selected skills:</p>
+            <div className="tag-container">
+              {skills.map((skill) => (
+                <div key={skill.name} className="skill-chip">
+                  <button
+                    type="button"
+                    className="tag selected"
+                    onClick={() => removeSkill(skill.name)}
+                  >
+                    {skill.name}
+                  </button>
+                  <select
+                    value={skill.level}
+                    onChange={(e) =>
+                      handleChangeLevel(
+                        skill.name,
+                        e.target.value as SkillLevel
+                      )
+                    }
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <div className="default-level-row">
+          <span>Default level for new skills:</span>
+          <select
+            value={defaultLevel}
+            onChange={(e) =>
+              setDefaultLevel(e.target.value as SkillLevel)
+            }
+          >
+            <option value="beginner">Beginner</option>
+            <option value="intermediate">Intermediate</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </div>
         <div className="input-group">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Add a skill (e.g., React, Python)"
-            aria-label="Add a new skill"
+            placeholder="Add a skill (e.g., FastAPI, React, Docker)"
           />
-          <button
-            type="button"
-            onClick={handleAdd}
-            aria-label="Add skill"
-            title="Add skill"
-          >
+          <button type="button" onClick={handleAddInputSkill}>
             +
           </button>
         </div>
-
-        {/* Skill Tags */}
         <div className="tag-container">
-          {/* Predefined Skills */}
-          {predefinedSkills.map((skill) => {
-            const selectedSkill = skills.find((s) => s.name === skill);
-            const isSelected = Boolean(selectedSkill);
-
-            return (
-              <div key={skill} className="skill-tag">
-                <button
-                  type="button"
-                  className={`tag ${isSelected ? "selected" : ""}`}
-                  onClick={() => toggleSkill(skill)}
-                  aria-label={`Toggle ${skill}`}
-                  title={`Toggle ${skill}`}
-                >
-                  {skill}
-                </button>
-
-                {isSelected && (
-                  <select
-                    value={selectedSkill!.level}
-                    onChange={(e) =>
-                      updateSkillLevel(skill, e.target.value as Skill["level"])
-                    }
-                    className="level-select"
-                    aria-label={`Select proficiency for ${skill}`}
-                    title={`Select proficiency level for ${skill}`}
-                  >
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Expert</option>
-                  </select>
-                )}
-              </div>
-            );
-          })}
-
-          {/* Custom Skills */}
-          {customSkills.map((skill) => {
-            const selectedSkill = skills.find((s) => s.name === skill);
-            return (
-              <div key={skill} className="skill-tag">
-                <button
-                  type="button"
-                  className="tag selected"
-                  onClick={() => toggleSkill(skill)}
-                  aria-pressed="true"
-                  aria-label={`Remove ${skill}`}
-                  title={`Remove ${skill}`}
-                >
-                  {skill} ✕
-                </button>
-
-                {selectedSkill && (
-                  <select
-                    value={selectedSkill.level}
-                    onChange={(e) =>
-                      updateSkillLevel(skill, e.target.value as Skill["level"])
-                    }
-                    className="level-select"
-                    aria-label={`Select proficiency for ${skill}`}
-                    title={`Select proficiency level for ${skill}`}
-                  >
-                    <option>Beginner</option>
-                    <option>Intermediate</option>
-                    <option>Expert</option>
-                  </select>
-                )}
-              </div>
-            );
-          })}
+          {remainingSuggestions.map((name) => (
+            <button
+              key={name}
+              type="button"
+              className="tag"
+              onClick={() => upsertSkill(name)}
+            >
+              {name}
+            </button>
+          ))}
         </div>
 
-        {/* Navigation Buttons */}
         <div className="buttons">
           <button
             type="button"
             className="back-btn"
-            disabled
-            aria-disabled="true"
-            aria-label="Go back"
+            onClick={() => navigate("/")}
+            disabled={saving}
           >
-            Back
+            Skip
           </button>
           <button
             type="button"
             className="next-btn"
-            onClick={() => navigate("/onboarding/interests")}
-            aria-label="Next step"
-            title="Go to next step"
+            onClick={handleNext}
+            disabled={saving}
           >
-            Next
+            {saving ? "Saving..." : "Next"}
           </button>
         </div>
       </div>
@@ -220,4 +219,4 @@ const SkillsPage: React.FC = () => {
   );
 };
 
-export default SkillsPage;
+export default AddSkillsPage;

@@ -1,29 +1,39 @@
-// src/features/onboarding/model/onboardingModel.ts
+// =======================================
+// Onboarding Data Model
+// =======================================
 
 export interface OnboardingData {
-  skills: string[];
+  skills: {
+    name: string;
+    level: "beginner" | "intermediate" | "advanced";
+  }[];
   interests: string[];
   projects: string[];
+  university?: string;
 }
 
 export const onboardingData: OnboardingData = {
   skills: [],
   interests: [],
   projects: [],
+  university: "",
 };
 
-// ✅ Save onboarding data
+// Save onboarding data
 export const saveOnboardingData = (data: OnboardingData) => {
   localStorage.setItem("onboardingData", JSON.stringify(data));
 };
 
-// ✅ Retrieve onboarding data
+// Retrieve onboarding data
 export const getOnboardingData = (): OnboardingData => {
   const stored = localStorage.getItem("onboardingData");
   return stored ? JSON.parse(stored) : onboardingData;
 };
 
-// ✅ Skill and Interest categories (unchanged)
+// =======================================
+// Skill Categories (unchanged)
+// =======================================
+
 export const skillCategories = [
   {
     type: "Programming Languages",
@@ -155,6 +165,10 @@ export const skillCategories = [
     ],
   },
 ];
+
+// =======================================
+// Interest Categories (unchanged)
+// =======================================
 
 export const interestCategories = [
   {
