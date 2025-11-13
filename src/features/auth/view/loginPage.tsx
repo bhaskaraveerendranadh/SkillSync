@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { loginUser } from "../controller/authcontroller.js";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./loginPage.css";
 
 const LoginPage: React.FC = () => {
@@ -8,6 +8,7 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +19,10 @@ const LoginPage: React.FC = () => {
     setLoading(false);
 
     if (res.success) {
-      setMessage("Login successful!");
+      // Set login flag in localStorage
+      localStorage.setItem("isLoggedIn", "true");
+      // Redirect to dashboard
+      navigate("/onboarding/skills");
     } else {
       setMessage(res.message || "Login failed");
     }

@@ -1,17 +1,13 @@
-// import React from "react";
 import { getDashboardData } from "../controller/dashboardController";
 import "../styles/dashboard.css";
 
 export default function DashBoardScreen() {
-  const data = getDashboardData();
+  const data = getDashboardData(); // Make sure this handles only logged-in user
+
   return (
     <div className="dashboard-container">
-      <h1 className="dashboard-title">
-        Welcome back, {data.userName}!
-      </h1>
-      <p className="dashboard-subtext">
-        Track your progress and grow your skills
-      </p>
+      <h1 className="dashboard-title">Welcome back, {data.userName}!</h1>
+      <p className="dashboard-subtext">Track your progress and grow your skills</p>
 
       <div className="dashboard-grid">
         <div className="dashboard-card">
